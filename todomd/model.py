@@ -1,8 +1,16 @@
 from dataclasses import dataclass
+from typing import Callable, List
+
 
 @dataclass
 class Task:
-    id: str
-    project: str
+    path: str
+    datasource: str
     name: str
     completed: bool
+
+
+@dataclass
+class Datasource:
+    get_tasks: Callable[[], List[Task]]
+    update_task: Callable[[Task], None]

@@ -9,7 +9,9 @@ license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pyairtable (>=3.0.2,<4.0.0)"
+    "pyairtable (>=3.0.2,<4.0.0)",
+    "argparse (>=1.4.0,<2.0.0)",
+    "pyyaml (>=6.0,<7.0)"
 ]
 
 [tool.poetry]

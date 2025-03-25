@@ -7,12 +7,12 @@
 Tasks are presented on a curses interface, and are separated by projects. Once the user selects the tasks they wish to add, they are added to the file with the following format:
 
 ```markdown
-* [ ] Task name @project:taskid
+* [ ] Task name @datasource:taskpath
 ```
 
 If the task already exists in the file, it will be updated with the task status (completed or not) and any changes to the task name.
 
-If `todomd` is called with the `--update` flag (as in `todomd --update [file]`), then it will update the datasource with the task status. It will then prompt the user if the user wishes to delete the completed lines from the file. 
+If `todomd` is called with the `--update-datasources` flag (as in `todomd --update [file]`), then it will update the datasource with the task status. It will then prompt the user if the user wishes to delete the completed lines from the file. 
 
 ## Datasources
 
@@ -33,10 +33,11 @@ Reads tasks from a plain markdown file. Will only read lines where there is a ch
 If there is no `@tid:taskid` string, then a new one will be generated and added to the line by taking the last 5 characters of the sha256 hex hash of the task name.
 
 The task status is whether the checkbox is checked or not. Only tasks where the checkbox is unchecked will be presented to the user. The task name is the text after the checkbox.
+The task path is just the taskid.
 
 **markdown_dir**
 
-Read tasks from all markdown files in a directory. Each markdown follows the same rules and format as `markdown_file`. Each file is treated as a separate project, where the project name is the file name without the extension.
+Read tasks from all markdown files in a directory. Each markdown follows the same rules and format as `markdown_file`. Each file is treated as a separate project, where the project name is the file name without the extension. The task path is the file name without the extension, followed by "/" and the taskid. Directories are added to the taskpath if markdown_dir has recursive set to true.
 
 ## Config file
 
@@ -45,20 +46,21 @@ The config file is stored by default in `~/.config/todomd.yml` and specifies the
 ```yaml
 
 datasources:
-  - type: airtable
+  air_view_1: 
+    type: airtable
     base: app1234567890abcdef
     view: View 1
     status_field: Status
     incompleted_value: Not Done
     completed_value: Done
-    project: Project 1
-    
-  - type: markdown_file
+  
+  tasks_md:
+    type: markdown_file
     file: ~/Documents/tasks.md
-    project: Project 2
 
-  - type: markdown_dir
-    file: ~/Documents/Projects
+  projects_dir:
+    type: markdown_dir
+    dir: ~/Documents/Projects
     recursive: false
 ```
 
