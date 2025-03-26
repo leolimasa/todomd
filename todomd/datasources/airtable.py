@@ -34,7 +34,7 @@ def get_tasks(conn: AirtableConnection) -> List[Task]:
         params["view"] = conn.view
     
     # Add formula to filter by status
-    formula = f"{{{conn.status_field}}} = '{conn.incompleted_value}'"
+    formula = f"OR({{{conn.status_field}}} = '{conn.incompleted_value}', {{{conn.status_field}}} = '{conn.completed_value}')"
     params["formula"] = formula
     
     # Get records using parameters
@@ -50,7 +50,7 @@ def get_tasks(conn: AirtableConnection) -> List[Task]:
         task = Task(
             path=record_id,
             name=fields[conn.name_field],
-            completed=False,
+            completed=fields[conn.status_field] == conn.completed_value,
             datasource=conn.datasource
         )
         tasks.append(task)

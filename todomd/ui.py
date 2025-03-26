@@ -26,7 +26,8 @@ def select_tasks(todo_tasks: List[Task], datasource_tasks: List[Task]) -> List[T
     for task in new_tasks:
         if task.datasource not in tasks_by_datasource:
             tasks_by_datasource[task.datasource] = []
-        tasks_by_datasource[task.datasource].append(task)
+        if not task.completed:
+            tasks_by_datasource[task.datasource].append(task)
     
     # Initialize selected tasks
     selected_tasks: List[Task] = []
@@ -48,12 +49,9 @@ def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_task
     # Enable key input
     stdscr.keypad(True)
     
-    # Get screen dimensions
-    max_y, max_x = stdscr.getmaxyx()
-    
     # Set up colors
     curses.start_color()
-    curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)  # Header
+    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_BLUE)  # Header
     curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)  # Selected item
     curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Selected task
     curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Datasource header
@@ -69,10 +67,16 @@ def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_task
     # Initialize selection variables
     current_pos = 0  # Current cursor position
     scroll_pos = 0   # Scroll position
-    
+        
+    stdscr.clear()
+
     # Main loop
     while True:
+        # Clear the entire screen to prevent ghosting
         stdscr.clear()
+        
+        # Get screen dimensions
+        max_y, max_x = stdscr.getmaxyx()
         
         # Calculate visible range based on screen size
         visible_items = max_y - 4  # Reserve lines for header and footer
@@ -85,6 +89,7 @@ def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_task
         
         # Draw header
         header = "TODOMD - Select Tasks"
+
         # Avoid writing to the right edge of the screen
         header_text = header.center(max_x-1)
         instructions = "Press SPACE to select a task, ENTER to confirm, q to quit"
@@ -97,6 +102,10 @@ def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_task
         y = 3  # Start drawing from line 3
         current_datasource = None
         
+        # Clear all task lines to prevent ghosting
+        for clear_y in range(3, max_y-1):
+            stdscr.addstr(clear_y, 0, " " * (max_x-1))
+        
         for i in range(scroll_pos, min(len(display_items), scroll_pos + visible_items)):
             task, is_selected = display_items[i]
             
@@ -104,7 +113,7 @@ def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_task
             if current_datasource != task.datasource:
                 current_datasource = task.datasource
                 if y < max_y - 1:  # Check if we have space
-                    stdscr.addstr(y, 2, f"=== {current_datasource} ===", curses.color_pair(4))
+                    stdscr.addstr(y, 2, f"=== {current_datasource} ===".ljust(max_x-4), curses.color_pair(4))
                     y += 1
             
             # Skip if we run out of space
@@ -115,12 +124,15 @@ def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_task
             marker = "[x]" if is_selected else "[ ]"
             task_line = f"{marker} {task.name}"
             
+            # Ensure the line is padded to clear any previous content
+            padded_line = task_line.ljust(max_x-4)
+            
             # Highlight current position
             if i == current_pos:
-                stdscr.addstr(y, 2, task_line[:max_x-4], curses.color_pair(2))
+                stdscr.addstr(y, 2, padded_line, curses.color_pair(2))
             else:
                 attr = curses.color_pair(3) if is_selected else curses.A_NORMAL
-                stdscr.addstr(y, 2, task_line[:max_x-4], attr)
+                stdscr.addstr(y, 2, padded_line, attr)
             
             y += 1
         
@@ -136,10 +148,10 @@ def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_task
         
         # Handle keys
         key = stdscr.getch()
-        
-        if key == curses.KEY_UP and current_pos > 0:
+       
+        if (key == curses.KEY_UP or key == ord('k')) and current_pos > 0:
             current_pos -= 1
-        elif key == curses.KEY_DOWN and current_pos < len(display_items) - 1:
+        elif (key == curses.KEY_DOWN or key == ord('j')) and current_pos < len(display_items) - 1:
             current_pos += 1
         elif key == ord(' '):  # Space to toggle selection
             if current_pos < len(display_items):

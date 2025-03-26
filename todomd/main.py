@@ -55,7 +55,7 @@ def main():
     datasources = datasource.from_config(config['datasources'])
     todo_tasks = todo_file.read_tasks(todo_file_path)
     datasource_tasks = datasource.read_tasks(datasources)
-    
+
     # Handle update mode
     if args.update_datasources:
         datasource.update_tasks(datasources, todo_tasks, datasource_tasks)
@@ -63,7 +63,7 @@ def main():
    
     # Update the todo file
     tasks_to_add = ui.select_tasks(todo_tasks, datasource_tasks)
-    todo_file.update_tasks(todo_file_path, datasource_tasks)
+    todo_file.update_tasks(todo_file_path, todo_tasks, datasource_tasks)
     todo_file.add_tasks(todo_file_path, tasks_to_add)
 
 if __name__ == '__main__':

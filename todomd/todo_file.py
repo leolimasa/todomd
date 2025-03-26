@@ -32,33 +32,57 @@ def _format_task_line(task: Task) -> str:
     return f"* [{checkbox}] {task.name} @{task.datasource}:{task.path}"
 
 
-def update_tasks(todo_file_path: str, datasource_tasks: List[Task]) -> None:
+def update_tasks(todo_file_path: str, todo_tasks: List[Task], datasource_tasks: List[Task]) -> None:
     '''
-    Update the tasks on the todo file with the tasks from the datasources.
-    Creates a mapping of (datasource, task_id) to Task objects from datasources,
-    then updates matching tasks in the todo file with data from the datasources.
+    Update the tasks in the todo file with the latest data from the datasources.
+    Uses todo_tasks as the tasks already present in the file.
+    Updates completion status of todo_tasks to match datasource_tasks.
     '''
     # Create expanded file path
     file_path = os.path.expanduser(todo_file_path)
     
-    # Create a mapping for quick lookup of tasks by datasource and ID
-    task_map = {(task.datasource, task.path): task for task in datasource_tasks}
-    
-    # If the file doesn't exist, create it with the tasks
-    if not os.path.exists(file_path):
-        add_tasks(todo_file_path, datasource_tasks)
+    # If the file doesn't exist or there are no todo tasks, nothing to update
+    if not os.path.exists(file_path) or not todo_tasks:
         return
     
-    # Read existing file content
-    with open(file_path, "r") as f:
+    # Create a mapping for quick lookup of datasource tasks by datasource and ID
+    datasource_task_map = {(task.datasource, task.path): task for task in datasource_tasks}
+    
+    # Track which todo tasks were updated
+    updated_tasks = []
+    
+    # Update todo tasks with status from datasource tasks
+    for todo_task in todo_tasks:
+        task_key = (todo_task.datasource, todo_task.path)
+        
+        # If this task exists in datasource tasks, update its status
+        if task_key in datasource_task_map:
+            datasource_task = datasource_task_map[task_key]
+            
+            # Update the todo task with datasource values
+            todo_task.completed = datasource_task.completed
+            todo_task.name = datasource_task.name  # Also update name if changed
+            
+            # Add to list of updated tasks
+            updated_tasks.append(todo_task)
+    
+    # If no tasks were updated, no need to rewrite file
+    if not updated_tasks:
+        return
+    
+    # Read the file content
+    with open(file_path, 'r') as f:
         lines = f.readlines()
     
-    # Process each line, updating tasks that match datasource tasks
+    # Create a map for quick lookup of updated tasks
+    updated_task_map = {(task.datasource, task.path): task for task in updated_tasks}
+    
+    # Process each line, replacing tasks that were updated
     updated_lines = []
     for line in lines:
         parsed = _parse_task_line(line.strip())
         
-        # If not a task line or task not in datasources, keep line as is
+        # If not a task line, keep as is
         if not parsed:
             updated_lines.append(line)
             continue
@@ -66,18 +90,16 @@ def update_tasks(todo_file_path: str, datasource_tasks: List[Task]) -> None:
         task_id, _, _, datasource = parsed
         task_key = (datasource, task_id)
         
-        if task_key in task_map:
-            # Update with task from datasources
-            task = task_map[task_key]
-            updated_lines.append(_format_task_line(task) + "\n")
-            # Remove task from map to track which ones were processed
-            del task_map[task_key]
+        # If this line corresponds to an updated task, replace it
+        if task_key in updated_task_map:
+            updated_task = updated_task_map[task_key]
+            updated_lines.append(_format_task_line(updated_task) + '\n')
         else:
-            # Keep the original line if no match in datasources
+            # Keep original line if no match in updated tasks
             updated_lines.append(line)
     
     # Write updated content back to file
-    with open(file_path, "w") as f:
+    with open(file_path, 'w') as f:
         f.writelines(updated_lines)
 
 
