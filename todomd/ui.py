@@ -1,6 +1,7 @@
 import curses
 import curses.panel
-from typing import Dict, List, Set, Tuple
+import os.path
+from typing import Dict, List, Set, Tuple, Optional
 
 from .model import Task
 
@@ -21,26 +22,39 @@ def select_tasks(todo_tasks: List[Task], datasource_tasks: List[Task]) -> List[T
     if not new_tasks:
         return []
     
-    # Group tasks by datasource
-    tasks_by_datasource: Dict[str, List[Task]] = {}
+    # Group tasks by datasource and path
+    tasks_by_datasource_and_path: Dict[str, Dict[str, List[Task]]] = {}
     for task in new_tasks:
-        if task.datasource not in tasks_by_datasource:
-            tasks_by_datasource[task.datasource] = []
         if not task.completed:
-            tasks_by_datasource[task.datasource].append(task)
+            # Initialize datasource dict if needed
+            if task.datasource not in tasks_by_datasource_and_path:
+                tasks_by_datasource_and_path[task.datasource] = {}
+            
+            # Get directory path from task path if it contains folders
+            path_parts = task.path.split('/')
+            if len(path_parts) > 2:  # More than project/taskid means we have directories
+                directory = '/'.join(path_parts[:-2])  # All parts except the last two (project and task id)
+            else:
+                directory = ""  # No directory structure
+                
+            # Initialize path dict if needed
+            if directory not in tasks_by_datasource_and_path[task.datasource]:
+                tasks_by_datasource_and_path[task.datasource][directory] = []
+                
+            tasks_by_datasource_and_path[task.datasource][directory].append(task)
     
     # Initialize selected tasks
     selected_tasks: List[Task] = []
     
     # Start curses interface
-    curses.wrapper(lambda stdscr: _curses_ui(stdscr, tasks_by_datasource, selected_tasks))
+    curses.wrapper(lambda stdscr: _curses_ui(stdscr, tasks_by_datasource_and_path, selected_tasks))
     
     return selected_tasks
 
 
-def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_tasks: List[Task]):
+def _curses_ui(stdscr, tasks_by_datasource_and_path: Dict[str, Dict[str, List[Task]]], selected_tasks: List[Task]):
     """
-    Curses UI for task selection
+    Curses UI for task selection with hierarchical organization by datasource and path
     """
     # Clear screen and hide cursor
     stdscr.clear()
@@ -51,18 +65,20 @@ def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_task
     
     # Set up colors
     curses.start_color()
-    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_BLUE)  # Header
-    curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)  # Selected item
-    curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Selected task
+    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_BLUE)    # Header
+    curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)   # Selected item
+    curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)   # Selected task
     curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Datasource header
+    curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)    # Directory header
     
-    # Create a flat list of all tasks with their indices and datasource for display
+    # Create a flat list of all tasks with their selection status for display
     display_items: List[Tuple[Task, bool]] = []
-    for datasource, tasks in tasks_by_datasource.items():
-        # Add datasource header
-        for task in tasks:
-            # Add task with selection status
-            display_items.append((task, False))
+    
+    # Flatten the hierarchical structure for display
+    for datasource, paths in tasks_by_datasource_and_path.items():
+        for directory, tasks in paths.items():
+            for task in tasks:
+                display_items.append((task, False))
     
     # Initialize selection variables
     current_pos = 0  # Current cursor position
@@ -101,6 +117,7 @@ def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_task
         # Draw tasks
         y = 3  # Start drawing from line 3
         current_datasource = None
+        current_directory = None
         
         # Clear all task lines to prevent ghosting
         for clear_y in range(3, max_y-1):
@@ -116,23 +133,41 @@ def _curses_ui(stdscr, tasks_by_datasource: Dict[str, List[Task]], selected_task
                     stdscr.addstr(y, 2, f"=== {current_datasource} ===".ljust(max_x-4), curses.color_pair(4))
                     y += 1
             
+            # Get directory from task path
+            path_parts = task.path.split('/')
+            directory = ""
+            if len(path_parts) > 2:  # More than project/taskid means we have directories
+                directory = '/'.join(path_parts[:-2])  # All parts except the last two
+            
+            # Display directory header if different from previous and not empty
+            if directory and current_directory != directory:
+                current_directory = directory
+                if y < max_y - 1:  # Check if we have space
+                    stdscr.addstr(y, 4, f"--- {directory} ---".ljust(max_x-6), curses.color_pair(5))
+                    y += 1
+            
             # Skip if we run out of space
             if y >= max_y - 1:
                 break
             
             # Prepare selection marker and task line
             marker = "[x]" if is_selected else "[ ]"
-            task_line = f"{marker} {task.name}"
+            # Display project name (last directory or filename) with task name
+            project_name = path_parts[-2] if len(path_parts) >= 2 else ""
+            task_line = f"{marker} {project_name}: {task.name}"
             
             # Ensure the line is padded to clear any previous content
             padded_line = task_line.ljust(max_x-4)
             
+            # Determine indentation level based on structure
+            indent = 6 if directory else 4
+            
             # Highlight current position
             if i == current_pos:
-                stdscr.addstr(y, 2, padded_line, curses.color_pair(2))
+                stdscr.addstr(y, indent, padded_line, curses.color_pair(2))
             else:
                 attr = curses.color_pair(3) if is_selected else curses.A_NORMAL
-                stdscr.addstr(y, 2, padded_line, attr)
+                stdscr.addstr(y, indent, padded_line, attr)
             
             y += 1
         

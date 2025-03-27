@@ -31,5 +31,14 @@
 			exec $SHELL
 		    '';
 		};
+
+		# App that can be run with "nix run"
+		apps.default = flake-utils.lib.mkApp {
+		    drv = sysNixpkgs.writeShellScriptBin "todomd" ''
+			cd ${self}
+			${sysNixpkgs.poetry}/bin/poetry install
+			${sysNixpkgs.poetry}/bin/poetry run python3 -m todomd.main "$@"
+		    '';
+		};
 	    });
 }
