@@ -11,17 +11,17 @@ def _parse_task_line(line: str) -> Optional[Tuple[str, str, bool, str]]:
     Returns (task_id, task_name, completed, datasource) or None if not a valid task line
     """
     # Match checkbox markdown format with datasource tag
-    # Format: * [ ] Task name @datasource:taskid
-    pattern = r"^\*\s+\[([ xX])\]\s+(.+?)\s+@([a-zA-Z0-9_-]+):([a-zA-Z0-9]+)$"
+    # Format: * [ ] Task name @datasource:taskpath
+    pattern = r"^\*\s+\[([ xX])\]\s+(.+?)\s+@([a-zA-Z0-9_-]+):(.+)$"
     match = re.match(pattern, line.strip())
     
     if not match:
         return None
     
-    checkbox, task_name, datasource, task_id = match.groups()
+    checkbox, task_name, datasource, task_path = match.groups()
     completed = checkbox.lower() == "x"
     
-    return task_id, task_name, completed, datasource
+    return task_path, task_name, completed, datasource
 
 
 def _format_task_line(task: Task) -> str:
@@ -149,7 +149,8 @@ def read_tasks(todo_file_path: str) -> List[Task]:
     # If file doesn't exist, return empty list
     if not os.path.exists(file_path):
         return tasks
-    
+   
+    print(f"Reading tasks from: {file_path}")
     # Read file and parse tasks
     with open(file_path, "r") as f:
         for line in f:
@@ -163,5 +164,6 @@ def read_tasks(todo_file_path: str) -> List[Task]:
                     datasource=datasource
                 )
                 tasks.append(task)
+                print(f"Parsed task: {task_id}, Name: {task_name}, Completed: {completed}, Datasource: {datasource}")
     
     return tasks

@@ -56,6 +56,9 @@ def main():
     todo_tasks = todo_file.read_tasks(todo_file_path)
     datasource_tasks = datasource.read_tasks(datasources)
 
+    # Print the number of tasks read from the todo file and datasources for debugging
+    print(f"Todo tasks read from file: {len(todo_tasks)}")
+
     # Handle update mode
     if args.update_datasources:
         datasource.update_tasks(datasources, todo_tasks, datasource_tasks)

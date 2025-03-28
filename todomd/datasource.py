@@ -45,6 +45,12 @@ def update_tasks(datasources: Dict[str, Datasource], todo_tasks: List[Task], dat
     todo_tasks_by_datasource = task.group_by_datasource(todo_tasks)
     datasource_tasks_by_datasource = task.group_by_datasource(datasource_tasks)
 
+    # Print the number of tasks in each datasource for debugging
+    for ds_name, tasks in todo_tasks_by_datasource.items():
+        print(f"Todo tasks for datasource {ds_name}: {len(tasks)}")
+    for ds_name, tasks in datasource_tasks_by_datasource.items():
+        print(f"Datasource tasks for {ds_name}: {len(tasks)}")
+
     # Go through each datasource and update tasks that have changed
     for ds_name, ds in datasources.items():
 

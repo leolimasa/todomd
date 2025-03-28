@@ -89,5 +89,5 @@ def from_config(datasource_name: str, config: dict) -> Datasource:
     
     return Datasource(
         get_tasks=lambda: get_tasks(conn),
-        update_task=lambda task: update_task(conn, task)
+        update_tasks=lambda task: update_tasks(conn, task)
     )
