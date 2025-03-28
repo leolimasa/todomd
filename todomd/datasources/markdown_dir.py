@@ -1,12 +1,9 @@
 # The markdown directory datasource
-import hashlib
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Dict
 
-from todomd import datasource
 from ..model import Task, Datasource
 from . import markdown_file
 
@@ -43,11 +40,14 @@ def get_tasks(conn: MarkdownDir) -> List[Task]:
          
             # Read file tasks
             mfile = markdown_file.MarkdownFile(str(file_path), conn.datasource) 
-            tasks = markdown_file.get_tasks(mfile)
+            file_tasks = markdown_file.get_tasks(mfile)
+            print(f"File: {file_path}, Tasks: {len(file_tasks)}")
 
             # Add project name to task paths
-            for task in tasks:
-                task.path = f"{rel_path}/{file_no_ext}/{task.path}"
+            for task in file_tasks:
+                task.path = f"{rel_path}/{task.path}"
+                print(task.path)
+            tasks.extend(file_tasks)
 
     except FileNotFoundError:
         # If directory doesn't exist, return empty list
@@ -55,44 +55,52 @@ def get_tasks(conn: MarkdownDir) -> List[Task]:
     
     return tasks
 
-
-def update_task(conn: MarkdownDir, task: Task):
+def _tasks_by_file(tasks: List[Task]) -> Dict[str, List[Task]]:
     """
-    Update task status in the appropriate markdown file
-    Uses the markdown_file datasource to update the task
+    Helper function to group tasks by their file path
+    This will create a dictionary where the keys are directory paths
+    and the values are lists of tasks in those directories.
+    """
+    tasks_by_file = {}
+    
+    for task in tasks:
+        # Extract the directory from the task path
+        dir_path = '/'.join(task.path.split('/')[:-1])  # All but the last part
+        if dir_path not in tasks_by_file:
+            tasks_by_file[dir_path] = []
+        tasks_by_file[dir_path].append(task)
+    
+    return tasks_by_file
+
+def update_tasks(conn: MarkdownDir, tasks: List[Task]):
+    """
+    Update task status in the appropriate markdown file.
+    Uses the markdown_file datasource to update tasks.
     """
     dir_path = os.path.expanduser(conn.dir)
-    
-    # Parse the task path to get the file name and task ID
-    path_parts = task.path.split('/')
-    task_id = path_parts[-1]  # Last part is the task ID
-    
-    if conn.recursive and len(path_parts) > 2:
-        # If recursive and has more than 2 parts, we have directories
-        project_name = path_parts[-2]  # Second-to-last is the project name
-        subdir = '/'.join(path_parts[:-2])  # All but the last two parts are the subdirectory
-        file_path = os.path.join(dir_path, subdir, f"{project_name}.md")
-    else:
-        # Not recursive or no subdirectories
-        project_name = path_parts[0]  # First part is the project name
-        file_path = os.path.join(dir_path, f"{project_name}.md")
-    
-    try:
-        # Create a modified task with just the task ID as the path
-        modified_task = Task(
-            path=task_id,
-            name=task.name,
-            completed=task.completed,
-            datasource=task.datasource
-        )
-        
-        # Create a MarkdownFile connection and use its update_task function
-        mfile = markdown_file.MarkdownFile(file_path, conn.datasource)
-        
-        # Use the markdown_file update_task function
-        markdown_file.update_task(mfile, modified_task)
-    except Exception as e:
-        print(f"Error updating task in {file_path}: {e}")
+    by_file = _tasks_by_file(tasks)
+  
+    for file, tasks in by_file.items():
+        modified_tasks = []
+        for task in tasks:
+            # Parse the task path to get the file name and task ID
+            path_parts = task.path.split('/')
+            task_id = path_parts[-1]  # Last part is the task ID
+            modified_task = Task(
+                path=task_id,
+                name=task.name,
+                completed=task.completed,
+                datasource=task.datasource
+            )
+            modified_tasks.append(modified_task)
+
+        try: 
+            # Create a MarkdownFile connection and use its update_task function
+            file_path = os.path.join(dir_path, file) # Make the path absolute
+            mfile = markdown_file.MarkdownFile(file_path, conn.datasource)
+            markdown_file.update_tasks(mfile, modified_tasks)
+        except Exception as e:
+            print(f"Error updating tasks in {file}: {e}")
 
 
 def from_config(datasource_name: str, config: dict) -> Datasource:
@@ -106,5 +114,5 @@ def from_config(datasource_name: str, config: dict) -> Datasource:
     )
     return Datasource(
         get_tasks=lambda: get_tasks(conn),
-        update_task=lambda task: update_task(conn, task)
+        update_tasks=lambda tasks: update_tasks(conn, tasks)
     )

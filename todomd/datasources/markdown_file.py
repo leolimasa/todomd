@@ -9,6 +9,7 @@ from typing import List, Optional, Tuple
 from todomd import datasource
 
 from ..model import Task, Datasource
+from .. import task
 
 @dataclass
 class MarkdownFile:
@@ -79,13 +80,13 @@ def get_tasks(conn: MarkdownFile) -> List[Task]:
     
     return tasks
 
-
-def update_task(conn: MarkdownFile, task: Task):
+def update_tasks(conn: MarkdownFile, tasks: List[Task]):
     """
     Update task status in markdown file
     Returns True if successful, False otherwise
     """
     file_path = os.path.expanduser(conn.file)
+    tasks_by_path = task.group_by_path(tasks)
     
     # Read file content
     with open(file_path, "r") as f:
@@ -97,14 +98,17 @@ def update_task(conn: MarkdownFile, task: Task):
         parsed = _parse_task_line(line)
         if not parsed:
             continue
-            
+           
         task_id, _, _ = parsed
-        if task_id == task.path:
-            # Create updated line with same task_id
-            checkbox = "x" if task.completed else " "
-            lines[i] = f"* [{checkbox}] {task.name} @tid:{task.path}\n"
-            updated = True
-            break
+        if task_id not in tasks_by_path:
+            continue
+
+        t = tasks_by_path[task_id]
+        # Create updated line with same task_id
+        checkbox = "x" if t.completed else " "
+        # lines[i] = f"* [{checkbox}] {task.name} @tid:{task.path}\n"
+        lines[i] = f"* [{checkbox}] {t.name}\n"
+        updated = True
     
     # Write back to file if updated
     if updated:
@@ -122,5 +126,5 @@ def from_config(datasource_name: str, config: dict) -> Datasource:
     )
     return Datasource(
         get_tasks=lambda: get_tasks(conn),
-        update_task=lambda task: update_task(conn, task)
+        update_tasks=lambda tasks: update_tasks(conn, tasks)
     )

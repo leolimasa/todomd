@@ -13,4 +13,4 @@ class Task:
 @dataclass
 class Datasource:
     get_tasks: Callable[[], List[Task]]
-    update_task: Callable[[Task], None]
+    update_tasks: Callable[[List[Task]], None]

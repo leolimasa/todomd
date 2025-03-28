@@ -3,6 +3,7 @@ import importlib
 from typing import Any, Dict, List
 
 from .model import Datasource, Task
+from . import task
 
 def from_config(datasources_config: Dict[str, Any]) -> Dict[str, Datasource]:
     '''
@@ -38,22 +39,31 @@ def update_tasks(datasources: Dict[str, Datasource], todo_tasks: List[Task], dat
     Each task will be updated in its corresponding datasource based on the
     task's datasource attribute.
     '''
+    print("Updating tasks...")
+
     # Group tasks by datasource
-    tasks_by_datasource = {}
-    for task in todo_tasks:
-        ds_name = task.datasource
-        if ds_name not in tasks_by_datasource:
-            tasks_by_datasource[ds_name] = []
-        tasks_by_datasource[ds_name].append(task)
-    
-    # Update each datasource with its tasks
-    for ds_name, tasks in tasks_by_datasource.items():
-        if ds_name in datasources:
-            for task in tasks:
-                try:
-                    datasources[ds_name].update_task(task)
-                except Exception as e:
-                    print(f"Error updating task {task.path} in datasource {ds_name}: {e}")
+    todo_tasks_by_datasource = task.group_by_datasource(todo_tasks)
+    datasource_tasks_by_datasource = task.group_by_datasource(datasource_tasks)
+
+    # Go through each datasource and update tasks that have changed
+    for ds_name, ds in datasources.items():
+
+        if ds_name not in todo_tasks_by_datasource or ds_name not in datasource_tasks_by_datasource:
+            print(f"No tasks to update for datasource {ds_name}")
+            continue
+        
+        todo_tasks_by_path = task.group_by_path(todo_tasks_by_datasource[ds_name])
+        datasource_tasks_by_path = task.group_by_path(datasource_tasks_by_datasource[ds_name])
+        tasks_to_update = []
+
+        for path, cur_task in todo_tasks_by_path.items():
+            # Check if the task exists in the datasource and then update if it changed
+            if path in datasource_tasks_by_path:
+                datasource_task = datasource_tasks_by_path[path]
+                if cur_task.completed != datasource_task.completed:
+                    tasks_to_update.append(cur_task)
+
+        ds.update_tasks(tasks_to_update)
 
 
 def read_tasks(datasources: Dict[str, Datasource]) -> List[Task]:
@@ -66,6 +76,7 @@ def read_tasks(datasources: Dict[str, Datasource]) -> List[Task]:
     for ds_name, datasource in datasources.items():
         try:
             tasks = datasource.get_tasks()
+            print(f"Read {len(tasks)} tasks from datasource {ds_name}")
             all_tasks.extend(tasks)
         except Exception as e:
             print(f"Error reading tasks from datasource {ds_name}: {e}")

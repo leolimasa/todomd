@@ -58,7 +58,7 @@ def get_tasks(conn: AirtableConnection) -> List[Task]:
     return tasks
 
 
-def update_task(conn: AirtableConnection, task: Task):
+def update_tasks(conn: AirtableConnection, tasks: List[Task]):
     """
     Update task status in Airtable
     """
@@ -66,10 +66,9 @@ def update_task(conn: AirtableConnection, task: Task):
     table = Table(conn.token, conn.base, conn.table)
     
     # Determine the status value based on task completion
-    status_value = conn.completed_value if task.completed else conn.incompleted_value
-    
-    # Update the record
-    table.update(task.path, {conn.status_field: status_value})
+    for task in tasks:
+        status_value = conn.completed_value if task.completed else conn.incompleted_value
+        table.update(task.path, {conn.status_field: status_value})
 
 
 def from_config(datasource_name: str, config: dict) -> Datasource:
