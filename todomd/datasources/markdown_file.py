@@ -106,7 +106,7 @@ def update_tasks(conn: MarkdownFile, tasks: List[Task]):
 
         t = tasks_by_id[task_id]
         # Create updated line with same task_id
-        checkbox = "X" if t.completed else " "
+        checkbox = "x" if t.completed else " "
         # lines[i] = f"* [{checkbox}] {task.name} @tid:{task.path}\n"
         lines[i] = f"* [{checkbox}] {t.name}\n"
         updated = True

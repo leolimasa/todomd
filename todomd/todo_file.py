@@ -29,7 +29,7 @@ def _format_task_line(task: Task) -> str:
     """
     Format a task as a markdown line
     """
-    checkbox = "X" if task.completed else " "
+    checkbox = "x" if task.completed else " "
     path = task.path if task.path is not None else ""
     return f"* [{checkbox}] {task.name} @{task.datasource}:{path}:{task.id}"
 
