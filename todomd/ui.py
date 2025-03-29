@@ -13,11 +13,14 @@ def select_tasks(todo_tasks: List[Task], datasource_tasks: List[Task]) -> List[T
     Returns a list of selected tasks.
     '''
     # Create a set of (datasource, task_id) for quick checking of duplicates
-    existing_tasks = {(task.datasource, task.path) for task in todo_tasks}
+    existing_tasks = {(task.datasource, task.path, task.id) for task in todo_tasks}
     
     # Filter out tasks that are already in the todo file
     new_tasks = [task for task in datasource_tasks 
-                 if (task.datasource, task.path) not in existing_tasks]
+                 if (task.datasource, task.path, task.id) not in existing_tasks]
+
+    # Filter out tasks that are completed
+    new_tasks = [task for task in new_tasks if not task.completed]
     
     # If no new tasks, return empty list
     if not new_tasks:
@@ -36,7 +39,7 @@ def select_tasks(todo_tasks: List[Task], datasource_tasks: List[Task]) -> List[T
     return selected_tasks
 
 
-def _curses_ui(stdscr, tasks_by_datasource_and_path: Dict[str, Dict[str, List[Task]]], selected_tasks: List[Task]):
+def _curses_ui(stdscr, tasks_by_datasource_and_path: Dict[str, Dict[Optional[str], List[Task]]], selected_tasks: List[Task]):
     """
     Curses UI for task selection with hierarchical organization by datasource and path
     """
@@ -59,8 +62,8 @@ def _curses_ui(stdscr, tasks_by_datasource_and_path: Dict[str, Dict[str, List[Ta
     display_items: List[Tuple[Task, bool]] = []
     
     # Flatten the hierarchical structure for display
-    for datasource, paths in tasks_by_datasource_and_path.items():
-        for directory, tasks in paths.items():
+    for _, paths in tasks_by_datasource_and_path.items():
+        for _, tasks in paths.items():
             for task in tasks:
                 display_items.append((task, False))
     

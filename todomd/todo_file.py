@@ -62,6 +62,7 @@ def update_tasks(todo_file_path: str, todo_tasks: List[Task], datasource_tasks: 
             datasource_task = datasource_task_map[task_key]
             
             # Update the todo task with datasource values
+            print(f"Updating task: {todo_task.id} from datasource. Old completed: {todo_task.completed}, New completed: {datasource_task.completed}")
             todo_task.completed = datasource_task.completed
             todo_task.name = datasource_task.name  # Also update name if changed
             

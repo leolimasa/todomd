@@ -1,5 +1,5 @@
 from .model import Task
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 def group_by_datasource(tasks: List[Task]) -> Dict[str, List[Task]]:
     tasks_by_datasource = {}
@@ -19,7 +19,7 @@ def group_by_id(tasks: List[Task]) -> Dict[str, Task]:
         tasks_by_id[task.id] = task
     return tasks_by_id
 
-def group_by_path(tasks: List[Task]) -> Dict[str, List[Task]]:
+def group_by_path(tasks: List[Task]) -> Dict[Optional[str], List[Task]]:
     """
     Group tasks by their path.
     """
