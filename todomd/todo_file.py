@@ -5,31 +5,33 @@ from typing import Dict, List, Optional, Tuple
 
 from .model import Task
 
-def _parse_task_line(line: str) -> Optional[Tuple[str, str, bool, str]]:
+def _parse_task_line(line: str) -> Optional[Tuple[str, Optional[str], str, bool, str]]:
     """
     Parse a markdown task line into its components
     Returns (task_id, task_name, completed, datasource) or None if not a valid task line
     """
     # Match checkbox markdown format with datasource tag
     # Format: * [ ] Task name @datasource:taskpath
-    pattern = r"^\*\s+\[([ xX])\]\s+(.+?)\s+@([a-zA-Z0-9_-]+):(.+)$"
+    pattern = r"^\*\s+\[([ xX])\]\s+(.+?)\s+@([a-zA-Z0-9_-]+):(.*):(.+)$"
     match = re.match(pattern, line.strip())
     
     if not match:
         return None
     
-    checkbox, task_name, datasource, task_path = match.groups()
+    checkbox, task_name, datasource, task_path, task_id = match.groups()
     completed = checkbox.lower() == "x"
+    task_path = task_path if task_path != "" else None
     
-    return task_path, task_name, completed, datasource
+    return task_id, task_path, task_name, completed, datasource
 
 
 def _format_task_line(task: Task) -> str:
     """
     Format a task as a markdown line
     """
-    checkbox = "x" if task.completed else " "
-    return f"* [{checkbox}] {task.name} @{task.datasource}:{task.path}"
+    checkbox = "X" if task.completed else " "
+    path = task.path if task.path is not None else ""
+    return f"* [{checkbox}] {task.name} @{task.datasource}:{path}:{task.id}"
 
 
 def update_tasks(todo_file_path: str, todo_tasks: List[Task], datasource_tasks: List[Task]) -> None:
@@ -46,14 +48,14 @@ def update_tasks(todo_file_path: str, todo_tasks: List[Task], datasource_tasks: 
         return
     
     # Create a mapping for quick lookup of datasource tasks by datasource and ID
-    datasource_task_map = {(task.datasource, task.path): task for task in datasource_tasks}
+    datasource_task_map = {(task.datasource, task.path, task.id): task for task in datasource_tasks}
     
     # Track which todo tasks were updated
     updated_tasks = []
     
     # Update todo tasks with status from datasource tasks
     for todo_task in todo_tasks:
-        task_key = (todo_task.datasource, todo_task.path)
+        task_key = (todo_task.datasource, todo_task.path, todo_task.id)
         
         # If this task exists in datasource tasks, update its status
         if task_key in datasource_task_map:
@@ -75,7 +77,7 @@ def update_tasks(todo_file_path: str, todo_tasks: List[Task], datasource_tasks: 
         lines = f.readlines()
     
     # Create a map for quick lookup of updated tasks
-    updated_task_map = {(task.datasource, task.path): task for task in updated_tasks}
+    updated_task_map = {(task.datasource, task.path, task.id): task for task in updated_tasks}
     
     # Process each line, replacing tasks that were updated
     updated_lines = []
@@ -87,8 +89,8 @@ def update_tasks(todo_file_path: str, todo_tasks: List[Task], datasource_tasks: 
             updated_lines.append(line)
             continue
         
-        task_id, _, _, datasource = parsed
-        task_key = (datasource, task_id)
+        task_id, task_path, _, _, datasource = parsed
+        task_key = (datasource, task_path, task_id)
         
         # If this line corresponds to an updated task, replace it
         if task_key in updated_task_map:
@@ -121,8 +123,8 @@ def add_tasks(todo_file_path: str, tasks: List[Task]) -> None:
             for line in f:
                 parsed = _parse_task_line(line.strip())
                 if parsed:
-                    task_id, _, _, datasource = parsed
-                    existing_tasks.add((datasource, task_id))
+                    task_id, task_path, _, _, datasource = parsed
+                    existing_tasks.add((datasource, task_path, task_id))
     
     # Open file in append mode (creates if not exists)
     with open(file_path, "a") as f:
@@ -132,7 +134,7 @@ def add_tasks(todo_file_path: str, tasks: List[Task]) -> None:
         
         # Add tasks that don't already exist in the file
         for task in tasks:
-            task_key = (task.datasource, task.path)
+            task_key = (task.datasource, task.path, task.id)
             if task_key not in existing_tasks:
                 f.write(_format_task_line(task) + "\n")
 
@@ -156,9 +158,10 @@ def read_tasks(todo_file_path: str) -> List[Task]:
         for line in f:
             parsed = _parse_task_line(line.strip())
             if parsed:
-                task_id, task_name, completed, datasource = parsed
+                task_id, task_path, task_name, completed, datasource = parsed
                 task = Task(
-                    path=task_id,
+                    id=task_id,
+                    path=task_path,
                     name=task_name,
                     completed=completed,
                     datasource=datasource

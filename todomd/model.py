@@ -1,10 +1,11 @@
 from dataclasses import dataclass
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 
 @dataclass
 class Task:
-    path: str
+    id: str
+    path: Optional[str] 
     datasource: str
     name: str
     completed: bool

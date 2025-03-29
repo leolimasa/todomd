@@ -34,11 +34,12 @@ def get_tasks(conn: AirtableConnection) -> List[Task]:
         params["view"] = conn.view
     
     # Add formula to filter by status
-    formula = f"OR({{{conn.status_field}}} = '{conn.incompleted_value}', {{{conn.status_field}}} = '{conn.completed_value}')"
-    params["formula"] = formula
+    #formula = f"OR({{{conn.status_field}}} = '{conn.incompleted_value}', {{{conn.status_field}}} = '{conn.completed_value}')"
+    #params["formula"] = formula
     
     # Get records using parameters
     records = table.all(**params)
+    print(f"Fetched {len(records)} records from Airtable")
     
     # Convert records to Task objects
     tasks = []
@@ -48,7 +49,8 @@ def get_tasks(conn: AirtableConnection) -> List[Task]:
         
         # Create task with Airtable record ID as task_id
         task = Task(
-            path=record_id,
+            id=record_id,
+            path=None,
             name=fields[conn.name_field],
             completed=fields[conn.status_field] == conn.completed_value,
             datasource=conn.datasource
@@ -68,7 +70,7 @@ def update_tasks(conn: AirtableConnection, tasks: List[Task]):
     # Determine the status value based on task completion
     for task in tasks:
         status_value = conn.completed_value if task.completed else conn.incompleted_value
-        table.update(task.path, {conn.status_field: status_value})
+        table.update(task.id, {conn.status_field: status_value})
 
 
 def from_config(datasource_name: str, config: dict) -> Datasource:

@@ -32,6 +32,33 @@ def from_config(datasources_config: Dict[str, Any]) -> Dict[str, Datasource]:
     
     return result
 
+def _calculate_diff(todo_tasks: Dict[str, List[Task]], ds_tasks: Dict[str, List[Task]]) -> List[Task]:
+    '''
+    Calculates which tasks have the same path and id in both datasource and todo, and also
+    have different completion statuses.
+    '''
+    changed_tasks = []
+    
+    common_paths = set(todo_tasks.keys()) & set(ds_tasks.keys())
+    print(f"Paths to be updated: {len(common_paths)}")
+    print(todo_tasks.keys())
+    print(ds_tasks.keys())
+
+    # Iterate through paths that exist in both dictionaries
+    for path in common_paths:
+        todo_tasks_by_id = task.group_by_id(todo_tasks[path])
+        ds_tasks_by_id = task.group_by_id(ds_tasks[path])
+        
+        # Find tasks with same id but different completion status
+        for task_id in set(todo_tasks_by_id.keys()) & set(ds_tasks_by_id.keys()):
+            todo_task = todo_tasks_by_id[task_id]
+            ds_task = ds_tasks_by_id[task_id]
+            
+            if todo_task.completed != ds_task.completed:
+                # Add the todo task to changed_tasks since that has the updated status
+                changed_tasks.append(todo_task)
+    
+    return changed_tasks
 
 def update_tasks(datasources: Dict[str, Datasource], todo_tasks: List[Task], datasource_tasks: List[Task]) -> None:
     '''
@@ -53,23 +80,15 @@ def update_tasks(datasources: Dict[str, Datasource], todo_tasks: List[Task], dat
 
     # Go through each datasource and update tasks that have changed
     for ds_name, ds in datasources.items():
-
         if ds_name not in todo_tasks_by_datasource or ds_name not in datasource_tasks_by_datasource:
             print(f"No tasks to update for datasource {ds_name}")
             continue
         
         todo_tasks_by_path = task.group_by_path(todo_tasks_by_datasource[ds_name])
         datasource_tasks_by_path = task.group_by_path(datasource_tasks_by_datasource[ds_name])
-        tasks_to_update = []
-
-        for path, cur_task in todo_tasks_by_path.items():
-            # Check if the task exists in the datasource and then update if it changed
-            if path in datasource_tasks_by_path:
-                datasource_task = datasource_tasks_by_path[path]
-                if cur_task.completed != datasource_task.completed:
-                    tasks_to_update.append(cur_task)
-
-        ds.update_tasks(tasks_to_update)
+        diff = _calculate_diff(todo_tasks_by_path, datasource_tasks_by_path)
+        print(f"Found {len(diff)} tasks with changed completion status for datasource {ds_name}")
+        ds.update_tasks(diff)
 
 
 def read_tasks(datasources: Dict[str, Datasource]) -> List[Task]:

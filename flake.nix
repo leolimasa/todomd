@@ -4,9 +4,10 @@
     inputs = {
 	nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 	flake-utils.url = "github:numtide/flake-utils";
+	poetry2nix.url = "github:nix-community/poetry2nix";
     };
 
-    outputs = { self, nixpkgs, flake-utils, ...}: let
+    outputs = { self, nixpkgs, flake-utils, poetry2nix, ...}: let
     	# This defines all packages that are shared across all builds of this project.
 	# We defined it as a function because repo will change depending on the
 	# architecture / os.

@@ -4,6 +4,7 @@ import os.path
 from typing import Dict, List, Set, Tuple, Optional
 
 from .model import Task
+from . import task
 
 def select_tasks(todo_tasks: List[Task], datasource_tasks: List[Task]) -> List[Task]:
     '''
@@ -21,31 +22,14 @@ def select_tasks(todo_tasks: List[Task], datasource_tasks: List[Task]) -> List[T
     # If no new tasks, return empty list
     if not new_tasks:
         return []
-    
-    # Group tasks by datasource and path
-    tasks_by_datasource_and_path: Dict[str, Dict[str, List[Task]]] = {}
-    for task in new_tasks:
-        if not task.completed:
-            # Initialize datasource dict if needed
-            if task.datasource not in tasks_by_datasource_and_path:
-                tasks_by_datasource_and_path[task.datasource] = {}
-            
-            # Get directory path from task path if it contains folders
-            path_parts = task.path.split('/')
-            if len(path_parts) > 2:  # More than project/taskid means we have directories
-                directory = '/'.join(path_parts[:-2])  # All parts except the last two (project and task id)
-            else:
-                directory = ""  # No directory structure
-                
-            # Initialize path dict if needed
-            if directory not in tasks_by_datasource_and_path[task.datasource]:
-                tasks_by_datasource_and_path[task.datasource][directory] = []
-                
-            tasks_by_datasource_and_path[task.datasource][directory].append(task)
-    
+
+    # Group tasks by datasource and path for hierarchical display
+    tasks_by_datasource = task.group_by_datasource(new_tasks)
+    tasks_by_datasource_and_path = {ds: task.group_by_path(items) for ds, items in tasks_by_datasource.items()}
+   
     # Initialize selected tasks
     selected_tasks: List[Task] = []
-    
+
     # Start curses interface
     curses.wrapper(lambda stdscr: _curses_ui(stdscr, tasks_by_datasource_and_path, selected_tasks))
     
@@ -95,7 +79,7 @@ def _curses_ui(stdscr, tasks_by_datasource_and_path: Dict[str, Dict[str, List[Ta
         max_y, max_x = stdscr.getmaxyx()
         
         # Calculate visible range based on screen size
-        visible_items = max_y - 4  # Reserve lines for header and footer
+        visible_items = max_y - 6  # Reserve lines for header and footer
         
         # Adjust scroll position if needed
         if current_pos < scroll_pos:
@@ -117,7 +101,7 @@ def _curses_ui(stdscr, tasks_by_datasource_and_path: Dict[str, Dict[str, List[Ta
         # Draw tasks
         y = 3  # Start drawing from line 3
         current_datasource = None
-        current_directory = None
+        current_path = None
         
         # Clear all task lines to prevent ghosting
         for clear_y in range(3, max_y-1):
@@ -130,20 +114,14 @@ def _curses_ui(stdscr, tasks_by_datasource_and_path: Dict[str, Dict[str, List[Ta
             if current_datasource != task.datasource:
                 current_datasource = task.datasource
                 if y < max_y - 1:  # Check if we have space
-                    stdscr.addstr(y, 2, f"=== {current_datasource} ===".ljust(max_x-4), curses.color_pair(4))
+                    stdscr.addstr(y, 2, f"  {current_datasource}".ljust(max_x-4), curses.color_pair(4))
                     y += 1
             
-            # Get directory from task path
-            path_parts = task.path.split('/')
-            directory = ""
-            if len(path_parts) > 2:  # More than project/taskid means we have directories
-                directory = '/'.join(path_parts[:-2])  # All parts except the last two
-            
             # Display directory header if different from previous and not empty
-            if directory and current_directory != directory:
-                current_directory = directory
+            if task.path is not None and current_path != task.path:
+                current_path = task.path
                 if y < max_y - 1:  # Check if we have space
-                    stdscr.addstr(y, 4, f"--- {directory} ---".ljust(max_x-6), curses.color_pair(5))
+                    stdscr.addstr(y, 4, f"  {task.path}".ljust(max_x-6), curses.color_pair(5))
                     y += 1
             
             # Skip if we run out of space
@@ -153,14 +131,13 @@ def _curses_ui(stdscr, tasks_by_datasource_and_path: Dict[str, Dict[str, List[Ta
             # Prepare selection marker and task line
             marker = "[x]" if is_selected else "[ ]"
             # Display project name (last directory or filename) with task name
-            project_name = path_parts[-2] if len(path_parts) >= 2 else ""
-            task_line = f"{marker} {project_name}: {task.name}"
+            task_line = f"{marker} {task.name}"
             
             # Ensure the line is padded to clear any previous content
             padded_line = task_line.ljust(max_x-4)
             
             # Determine indentation level based on structure
-            indent = 6 if directory else 4
+            indent = 6 if task.path is not None else 4
             
             # Highlight current position
             if i == current_pos:

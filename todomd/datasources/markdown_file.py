@@ -68,7 +68,8 @@ def get_tasks(conn: MarkdownFile) -> List[Task]:
                 # Only include incomplete tasks
                 if not completed:
                     task = Task(
-                        path=task_id,
+                        id=task_id,
+                        path=None,
                         name=task_name,
                         completed=False,
                         datasource=conn.datasource
@@ -86,7 +87,7 @@ def update_tasks(conn: MarkdownFile, tasks: List[Task]):
     Returns True if successful, False otherwise
     """
     file_path = os.path.expanduser(conn.file)
-    tasks_by_path = task.group_by_path(tasks)
+    tasks_by_id = task.group_by_id(tasks)
     
     # Read file content
     with open(file_path, "r") as f:
@@ -100,12 +101,12 @@ def update_tasks(conn: MarkdownFile, tasks: List[Task]):
             continue
            
         task_id, _, _ = parsed
-        if task_id not in tasks_by_path:
+        if task_id not in tasks_by_id:
             continue
 
-        t = tasks_by_path[task_id]
+        t = tasks_by_id[task_id]
         # Create updated line with same task_id
-        checkbox = "x" if t.completed else " "
+        checkbox = "X" if t.completed else " "
         # lines[i] = f"* [{checkbox}] {task.name} @tid:{task.path}\n"
         lines[i] = f"* [{checkbox}] {t.name}\n"
         updated = True
